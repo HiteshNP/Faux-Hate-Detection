@@ -1,0 +1,4 @@
+1. column add.py - add extra column to merge fake and hate classes, and then it is tokenized in word level
+2. split task A data into train and test using script.py
+3. embeddings.py- generate embeddings
+4. LR.py - train and test the model
