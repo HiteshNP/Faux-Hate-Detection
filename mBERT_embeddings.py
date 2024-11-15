@@ -4,11 +4,11 @@ import pandas as pd
 import pickle
 from tqdm import tqdm
 
-# Initialize the tokenizer and model for mBERT
+# Initialize the tokenizer and model for mBERT (multilingual BERT for Hindi-English)
 tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
 model = BertModel.from_pretrained('bert-base-multilingual-cased')
 
-def preprocess_data(tweets, max_length=128):
+def preprocess_data(tweets, max_length=232):
     encoding = tokenizer(
         tweets,
         padding=True,          # Pad all tweets to the same length
@@ -32,30 +32,32 @@ def generate_embeddings(df):
     embeddings_list = []
     for _, row in tqdm(df.iterrows(), total=len(df), desc="Generating mBERT Embeddings"):
         tweet = row['Tweet']
-        faux_label = row['FAUX']
+        fake_label = row['Fake']
+        hate_label = row['Hate']
         tweet_id = row['ID']
         
         # Preprocess and get embeddings
         input_ids, attention_mask = preprocess_data([tweet])  # List format for single tweet
         tweet_embedding = get_tweet_embeddings(input_ids, attention_mask)
         
-        # Convert tensor to numpy array and store with ID and label
+        # Convert tensor to numpy array and store with ID and labels
         embeddings_list.append({
             'ID': tweet_id,
-            'FAUX': faux_label,
+            'Fake': fake_label,
+            'Hate': hate_label,
             'embedding': tweet_embedding[0].cpu().numpy()
         })
     
     return embeddings_list
 
 # Load your dataset
-df = pd.read_csv('small_data.csv')  # Adjust the file name as necessary
+df = pd.read_csv(r'val_data.csv')  # Adjust the file name as necessary
 
 # Generate embeddings for the current subset
 embeddings = generate_embeddings(df)
 
 # Save embeddings to a .pkl file
-with open('Test_mBERT_embeddings.pkl', 'wb') as f:
+with open('mBERT_val_embeddings.pkl', 'wb') as f:
     pickle.dump(embeddings, f)
 
-print(f"Embeddings saved to 'Test_mBERT_embeddings.pkl'")
+print(f"Embeddings saved to 'mBERT_val_embeddings.pkl'")
