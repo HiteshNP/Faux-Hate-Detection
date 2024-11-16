@@ -1,0 +1,99 @@
+import pickle
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+# Load the saved embeddings and labels for training
+with open(r"C:\Users\Ankith Jain\Desktop\FAUX\TASK-B\A_flair.pkl", "rb") as f:
+    train_data = pickle.load(f)
+
+# Separate embeddings and labels
+X_train = np.array(list(train_data['Embeddings']))
+y_fake_train = train_data['Fake']
+y_hate_train = train_data['Hate']
+
+# Remove rows with NaN values in labels
+train_mask = ~np.isnan(y_fake_train) & ~np.isnan(y_hate_train)  # Keep rows where both labels are not NaN
+X_train = X_train[train_mask]
+y_fake_train = y_fake_train[train_mask]
+y_hate_train = y_hate_train[train_mask]
+
+print(f"Training data shape after removing NaN values: {X_train.shape}")
+
+# Train Logistic Regression models on the cleaned training data
+fake_model = LogisticRegression(max_iter=1000)
+hate_model = LogisticRegression(max_iter=1000)
+
+print("\n--- Training Models ---")
+# Train Fake model
+fake_model.fit(X_train, y_fake_train)
+print("Fake model trained.")
+
+# Train Hate model
+hate_model.fit(X_train, y_hate_train)
+print("Hate model trained.")
+
+# Load the validation embeddings and IDs
+with open(r"C:\Users\Ankith Jain\Desktop\FAUX\Task-B\A_flair_val.pkl", "rb") as f:
+    validation_data = pickle.load(f)  # Assume it contains embeddings and IDs
+
+# Extract validation embeddings and IDs
+validation_embeddings = np.array(list(validation_data['Embeddings']))
+validation_ids = validation_data['Id']  # Ensure Tweet_ID is present in the pickle file
+
+# Generate predictions for validation data
+print("\n--- Generating Predictions for Validation Data ---")
+predicted_fake = fake_model.predict(validation_embeddings)
+predicted_hate = hate_model.predict(validation_embeddings)
+
+# Save predictions with Tweet_ID
+validation_data['Predicted_Fake'] = predicted_fake
+validation_data['Predicted_Hate'] = predicted_hate
+
+# Save predictions for analysis
+validation_data[['Id', 'Predicted_Fake', 'Predicted_Hate']].to_csv(
+    r"C:\Users\Ankith Jain\Desktop\FAUX\validation\A_val_predictions.csv", index=False
+)
+print("Validation predictions saved.")
+
+# Load original validation data for comparison
+train_df = pd.read_csv(r"C:\Users\Ankith Jain\Desktop\FAUX\validation\cleaned_val_A.csv")  # Original train file
+train_df = train_df[['Id', 'Fake', 'Hate']]  # Keep only relevant columns
+
+# Perform merge
+merged_df = pd.merge(
+    validation_data[['Id', 'Predicted_Fake', 'Predicted_Hate']],
+    train_df,
+    on='Id',
+    how='inner'
+)
+
+# Check if the merge resulted in data
+print(f"\nMerged DataFrame Size: {merged_df.shape}")
+print(f"Merged DataFrame (first few rows): \n{merged_df.head()}")
+
+# Map 'N/A' as a valid class
+merged_df['Fake'] = merged_df['Fake'].fillna('N/A')
+merged_df['Predicted_Fake'] = merged_df['Predicted_Fake'].fillna('N/A')
+merged_df['Hate'] = merged_df['Hate'].fillna('N/A')
+merged_df['Predicted_Hate'] = merged_df['Predicted_Hate'].fillna('N/A')
+
+# Ensure there are valid rows for evaluation
+if merged_df.shape[0] == 0:
+    print("No valid rows found for evaluation.")
+else:
+    # Calculate accuracy for Fake
+    target_accuracy = accuracy_score(merged_df['Fake'], merged_df['Predicted_Fake'])
+    print(f"\nAccuracy for Fake: {target_accuracy:.2f}")
+
+    # Calculate accuracy for Hate
+    severity_accuracy = accuracy_score(merged_df['Hate'], merged_df['Predicted_Hate'])
+    print(f"Accuracy for Hate: {severity_accuracy:.2f}")
+
+    # Display classification reports for both labels
+    print("\nClassification Report for Fake:")
+    print(classification_report(merged_df['Fake'], merged_df['Predicted_Fake']))
+
+    print("\nClassification Report for Hate:")
+    print(classification_report(merged_df['Hate'], merged_df['Predicted_Hate']))
