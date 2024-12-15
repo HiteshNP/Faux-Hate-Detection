@@ -5,7 +5,7 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from sklearn.metrics import classification_report
 import torch.nn.functional as F
-from tqdm import tqdm  # Import tqdm for progress bars
+from tqdm import tqdm  
 from transformers import AutoTokenizer, AutoModel
 
 # Custom Dataset
@@ -72,7 +72,7 @@ class MultiTaskHateFakeClassifier(nn.Module):
 
         return hate_output, fake_output
 
-# Training function with early stopping
+# Training function 
 def train_model(model, train_loader, val_loader, device, num_epochs=30, learning_rate=2e-5, patience=5):
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
@@ -130,20 +130,16 @@ def train_model(model, train_loader, val_loader, device, num_epochs=30, learning
         print("Classification Report for Fake News Task:")
         print(classification_report(all_fake_labels, all_fake_preds))
 
-# Usage example
 def main():
-    # Load and preprocess your data
-    df_train = pd.read_csv('A_trans.csv')  # Load whole training data
-    df_val = pd.read_csv('A_val_trans.csv')  # Load validation data
+    df_train = pd.read_csv('A_trans.csv')  
+    df_val = pd.read_csv('A_val_trans.csv')  
 
-    # Clean and preprocess the labels
     for df in [df_train, df_val]:
         df.dropna(subset=['Hate', 'Fake', 'Tweet'], inplace=True)
         df['Hate'] = df['Hate'].astype(int)
         df['Fake'] = df['Fake'].astype(int)
         df = df[(df['Hate'].isin([0, 1])) & (df['Fake'].isin([0, 1]))]
 
-    # Extract texts and labels for training and validation
     texts_train = df_train['Tweet'].values
     hate_labels_train = df_train['Hate'].values
     fake_labels_train = df_train['Fake'].values
@@ -152,26 +148,20 @@ def main():
     hate_labels_val = df_val['Hate'].values
     fake_labels_val = df_val['Fake'].values
 
-    # Initialize HateBERT tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained("GroNLP/hateBERT")
     bert_model = AutoModel.from_pretrained("GroNLP/hateBERT")
 
-    # Create datasets
     train_dataset = HateFakeDataset(texts_train, hate_labels_train, fake_labels_train, tokenizer)
     val_dataset = HateFakeDataset(texts_val, hate_labels_val, fake_labels_val, tokenizer)
 
-    # Create DataLoaders
     batch_size = 32
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
-    # Initialize model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = MultiTaskHateFakeClassifier(bert_model).to(device)
 
-    # Train model
     train_model(model, train_loader, val_loader, device)
 
-# Run the main function
 if __name__ == '__main__':
     main()
